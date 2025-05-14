@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <title>World Clock - Live Time in Any Timezone</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="View accurate world clock time across global time zones. Switch between 24-hour and 12-hour formats, and customize what you display.">
+  <meta name="keywords" content="world clock, timezone converter, digital clock, 24 hour time, 12 hour clock, live time">
+  <meta name="author" content="timenew.live">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://timenew.live/world-clock">
+  <meta property="og:title" content="World Clock - Real-Time Digital Clock by Timezone">
+  <meta property="og:description" content="Customize and view real-time clocks across the globe. Works with all timezones and formats.">
+  <meta property="og:image" content="https://timenew.live/images/preview.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://timenew.live/world-clock">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="World Clock - Real-Time Digital Clock">
+  <meta name="twitter:description" content="Free tool to view accurate digital time across time zones in both 24/12 hour formats.">
+  <meta name="twitter:image" content="https://timenew.live/images/preview.png">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='%23ffffff'%3E%3Cpath d='M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm-.35 3.93c-.41 0-.75.33-.75.75v5.05c0 .26.14.5.37.64l3.92 2.34c.12.07.25.11.39.11.25 0 .5-.13.64-.37a.75.75 0 0 0-.26-1.03l-3.56-2.12V6.68c0-.42-.34-.75-.75-.75z'/%3E%3C/g%3E%3C/svg%3E">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0; background-color: #0d0d0d; color: #f0f0f0;
+      font-family: 'Inter', sans-serif;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 100vh; text-align: center;
+    }
+    #date { font-size: 30px; color: #bbb; margin-bottom: 8px; }
+    #time { font-size: 88px; font-weight: 700; }
+    #timezone { margin-top: 8px; font-size: 22px; color: #888; }
+    #settingsBtn {
+      position: fixed; top: 20px; right: 20px;
+      background: #1e1e1e; color: white;
+      border: 1px solid #444; padding: 10px 16px;
+      border-radius: 10px; font-size: 15px;
+      cursor: pointer; z-index: 10;
+    }
+    #settingsPanel {
+      display: none; position: fixed; top: 80px; right: 20px;
+      background: #1a1a1a; color: white; padding: 20px;
+      border-radius: 12px; width: 340px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.7); z-index: 9;
+    }
+    label { margin-top: 15px; font-size: 15px; display: block; }
+    select {
+      width: 100%; background: #222; color: white;
+      border: 1px solid #444; border-radius: 8px;
+      padding: 10px; font-family: 'Inter', sans-serif;
+    }
+    .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #444; transition: 0.4s; border-radius: 34px;
+    }
+    .slider:before {
+      position: absolute; content: ""; height: 18px; width: 18px;
+      left: 3px; bottom: 3px; background-color: white;
+      transition: 0.4s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: #007bff; }
+    input:checked + .slider:before { transform: translateX(26px); }
+    .toggle-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div id="date">--.--.----</div>
+  <div id="time">--:--</div>
+  <div id="timezone">UTC</div>
+
+  <button id="settingsBtn">⚙️ Settings</button>
+  <div id="settingsPanel">
+    <label>Time Zone</label>
+    <select id="tzSelector"></select>
+    <div class="toggle-row"><span>Show Seconds</span><label class="switch"><input type="checkbox" id="toggleSeconds"><span class="slider"></span></label></div>
+    <div class="toggle-row"><span>Show Date</span><label class="switch"><input type="checkbox" id="toggleDate"><span class="slider"></span></label></div>
+    <div class="toggle-row"><span>Show Timezone</span><label class="switch"><input type="checkbox" id="toggleTZ"><span class="slider"></span></label></div>
+    <div class="toggle-row"><span>24-Hour Format</span><label class="switch"><input type="checkbox" id="toggle24h"><span class="slider"></span></label></div>
+  </div>
+
+<script>
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsPanel = document.getElementById("settingsPanel");
+const urlParams = new URLSearchParams(location.search);
+
+settingsBtn.onclick = () => {
+  settingsPanel.style.display = settingsPanel.style.display === 'block' ? 'none' : 'block';
+};
+
+const tzSelector = document.getElementById("tzSelector");
+const timeZones = Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : ["UTC", "Europe/London"];
+timeZones.forEach(tz => {
+  const option = document.createElement("option");
+  option.value = tz;
+  option.textContent = tz;
+  tzSelector.appendChild(option);
+});
+
+function getParam(name, def = true) {
+  const val = urlParams.get(name);
+  if (val === null) return def;
+  return val === "true" || val === "1";
+}
+
+function updateClock() {
+  const tz = tzSelector.value || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const showSeconds = document.getElementById("toggleSeconds").checked;
+  const showDate = document.getElementById("toggleDate").checked;
+  const showTZ = document.getElementById("toggleTZ").checked;
+  const use24h = document.getElementById("toggle24h").checked;
+
+  const now = new Date();
+  const opts = {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: showSeconds ? '2-digit' : undefined,
+    hour12: !use24h,
+    timeZone: tz
+  };
+  document.getElementById("time").textContent = now.toLocaleTimeString([], opts);
+
+  document.getElementById("date").style.display = showDate ? "block" : "none";
+  document.getElementById("date").textContent = now.toLocaleDateString('en-GB', {
+    day: '2-digit', month: '2-digit', year: 'numeric', timeZone: tz
+  });
+
+  document.getElementById("timezone").style.display = showTZ ? "block" : "none";
+  document.getElementById("timezone").textContent = tz;
+
+  const newUrl = `${location.pathname}?tz=${encodeURIComponent(tz)}&seconds=${showSeconds}&date=${showDate}&timezone=${showTZ}&format=${use24h ? '24' : '12'}`;
+  history.replaceState({}, '', newUrl);
+}
+
+function applyParams() {
+  tzSelector.value = urlParams.get('tz') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  document.getElementById("toggleSeconds").checked = getParam('seconds');
+  document.getElementById("toggleDate").checked = getParam('date');
+  document.getElementById("toggleTZ").checked = getParam('timezone');
+  document.getElementById("toggle24h").checked = urlParams.get('format') !== "12";
+}
+
+applyParams();
+["tzSelector", "toggleSeconds", "toggleDate", "toggleTZ", "toggle24h"].forEach(id => {
+  document.getElementById(id).addEventListener('change', updateClock);
+});
+setInterval(updateClock, 1000);
+updateClock();
+</script>
+</body>
+</html>
